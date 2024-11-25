@@ -1,0 +1,7 @@
+.vscode/
+Library/
+logs/
+obj/
+Temp/
+UserSettings/
+.vsconfig
