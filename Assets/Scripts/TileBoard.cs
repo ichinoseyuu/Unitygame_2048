@@ -13,32 +13,49 @@ public class TileBoard : MonoBehaviour
     private TileGrid grid;  // 网格
     private List<Tile> tiles; // 当前已经创建的Tile
     private bool waiting;   // 是否处于等待操作的状态，用来控制
-    private BoardSnapshot undoSnapshot;
+    private readonly Stack<BoardSnapshot> undoHistory = new Stack<BoardSnapshot>();
+    private DG.Tweening.Sequence undoTween;
 
     private sealed class BoardSnapshot
     {
         public TileState[] states;
+        public int[] tileIds;
         public int score;
+        public readonly List<MergeRecord> merges = new List<MergeRecord>();
+    }
+
+    private sealed class MergeRecord
+    {
+        public int sourceIndex;
+        public int targetIndex;
     }
 
     //触屏开始和结束的位置
     private Vector2 startPos;
     private Vector2 endPos;
 
+    /// <summary>
+    /// 获取棋盘网格组件并初始化方块集合。
+    /// </summary>
     private void Awake()
     {
         grid = GetComponentInChildren<TileGrid>();
         tiles = new List<Tile>();
     }
 
-    // 清除所有游戏状态
+    /// <summary>
+    /// 清空移动协程、撤销历史、单元格关联和当前所有方块。
+    /// </summary>
     public void ClearBoard()
     {
+        // 先停止动画和异步操作，避免清理期间继续修改棋盘。
         StopAllCoroutines();
+        undoTween?.Kill();
+        undoTween = null;
         waiting = false;
-        undoSnapshot = null;
+        undoHistory.Clear();
 
-        // 清除所有Cell和Tile的链接关系
+        // 清除所有单元格的占用状态，再销毁场景中的方块对象。
         foreach (var cell in grid.cells)
         {
             cell.tile = null;
@@ -52,13 +69,16 @@ public class TileBoard : MonoBehaviour
         tiles.Clear();
     }
 
-    // 随机生成一个Tile
+    /// <summary>
+    /// 在随机空单元格中生成一个新方块，并播放出现动画。
+    /// </summary>
     public void CreateTile()
     {
         TileCell cell = grid.GetRandomEmptyCell();
         if (cell == null) return;
 
-        Tile tile = Instantiate(tilePrefab, grid.transform);// 根据模板实例化一个Tile出来
+        // 从预制体创建方块，并随机指定初始状态。
+        Tile tile = Instantiate(tilePrefab, grid.transform);
         //tile.SetState(tileStates[0]); // 这里总是会生成2，其实可以根据一些规则设置为别的数字
         tile.SetState(Random.Range(0, 1f) > 0.1f ? tileStates[0] : tileStates[1]);//和其他2048类似，有几率会随机产生4
         tile.LinkCell(cell); // 生成到一个随机的空的单元上
@@ -69,6 +89,9 @@ public class TileBoard : MonoBehaviour
         tiles.Add(tile);
     }
 
+    /// <summary>
+    /// 在棋盘可操作时，根据当前平台处理触控或键盘输入。
+    /// </summary>
     private void Update()
     {
         if (waiting) return;
@@ -83,7 +106,7 @@ public class TileBoard : MonoBehaviour
         }
     }
     /// <summary>
-    /// 移动端移动方法
+    /// 读取触控滑动方向，并将有效滑动转换为棋盘移动。
     /// </summary>
     private void HandleTouchInput()
     {
@@ -102,7 +125,8 @@ public class TileBoard : MonoBehaviour
 
             Vector2 swipeDirection = endPos - startPos;
 
-            if (swipeDirection.magnitude > 50) // 设置一个阈值来判断滑动距离是否足够大
+            // 忽略短距离触控，避免误触发移动。
+            if (swipeDirection.magnitude > 50)
             {
                 //判断滑动方向
                 if (Mathf.Abs(swipeDirection.x) > Mathf.Abs(swipeDirection.y))
@@ -132,7 +156,7 @@ public class TileBoard : MonoBehaviour
     }
 
     /// <summary>
-    /// 按键移动方法
+    /// 将方向键或 WASD 输入转换为棋盘移动。
     /// </summary>
     private void HandleKeyboardInput()
     {
@@ -155,15 +179,16 @@ public class TileBoard : MonoBehaviour
     }
 
     /// <summary>
-    /// 移动的方向 移动的初始X,Y和步长 用这些信息来决定哪些Cell应该移动
+    /// 按指定遍历方向移动方块，并为有效移动保存撤销快照。
     /// </summary>
-    /// <param name="direction">移动的方向</param>
-    /// <param name="startX"></param>
-    /// <param name="incrementX">每次循环的步长</param>
-    /// <param name="startY"></param>
-    /// <param name="incrementY">每次循环的步长</param>
+    /// <param name="direction">方块移动的方向。</param>
+    /// <param name="startX">开始遍历的列索引。</param>
+    /// <param name="incrementX">每次遍历列索引的步长。</param>
+    /// <param name="startY">开始遍历的行索引。</param>
+    /// <param name="incrementY">每次遍历行索引的步长。</param>
     private void Move(Vector2Int direction, int startX, int incrementX, int startY, int incrementY)
     {
+        // 移动前保存棋盘和分数状态，仅当局面实际变化时才保留该快照。
         BoardSnapshot snapshot = CaptureSnapshot();
         bool changed = false;
 
@@ -176,25 +201,26 @@ public class TileBoard : MonoBehaviour
                 // 只有被占用的Cell才会需要移动
                 if (cell.occupied)
                 {
-                    changed |= MoveTile(cell.tile, direction);
+                    changed |= MoveTile(cell.tile, direction, snapshot);
                 }
             }
         }
 
         if (changed)
         {
-            undoSnapshot = snapshot;
+            undoHistory.Push(snapshot);
             StartCoroutine(WaitForChanges());
         }
     }
 
     /// <summary>
-    /// 朝指定的方向移动单元格
+    /// 沿指定方向移动方块，直到遇到边界、障碍或可合并方块。
     /// </summary>
-    /// <param name="tile"></param>
-    /// <param name="direction"></param>
-    /// <returns></returns>
-    private bool MoveTile(Tile tile, Vector2Int direction)
+    /// <param name="tile">要移动的方块。</param>
+    /// <param name="direction">方块移动的方向。</param>
+    /// <param name="snapshot">本次移动前保存的棋盘快照，用于记录合并信息。</param>
+    /// <returns>方块位置发生变化或发生合并时返回 <see langword="true"/>。</returns>
+    private bool MoveTile(Tile tile, Vector2Int direction, BoardSnapshot snapshot)
     {
         TileCell newCell = null;
         TileCell adjacent = grid.GetAdjacentCell(tile.cell, direction);
@@ -207,7 +233,7 @@ public class TileBoard : MonoBehaviour
                 // 如果正好他们俩可以合并，那么就执行合并，本次Tile的移动处理就结束了
                 if (CanMerge(tile, adjacent.tile))
                 {
-                    MergeTiles(tile, adjacent.tile);
+                    MergeTiles(tile, adjacent.tile, snapshot);
                     return true;
                 }
                 // 如果不能合并 也就到此结束了，什么都不用做 
@@ -230,43 +256,133 @@ public class TileBoard : MonoBehaviour
     }
 
     /// <summary>
-    /// 判定两个单元格是否能合并
+    /// 判断两个方块是否具有相同状态，且目标方块尚未在本回合合并。
     /// </summary>
-    /// <param name="a"></param>
-    /// <param name="b"></param>
-    /// <returns></returns>
+    /// <param name="a">尝试移动或合并的方块。</param>
+    /// <param name="b">目标位置上的方块。</param>
+    /// <returns>两个方块可以合并时返回 <see langword="true"/>。</returns>
     private bool CanMerge(Tile a, Tile b)
     {
         return a != null && b != null && a.state == b.state && !b.locked;
     }
 
+    /// <summary>
+    /// 恢复最近一次有效移动前的棋盘状态，并播放移动和分离动画。
+    /// </summary>
+    /// <returns>成功开始撤销时返回 <see langword="true"/>；正在处理操作或没有历史记录时返回 <see langword="false"/>。</returns>
     public bool Undo()
     {
-        if (waiting || undoSnapshot == null) return false;
+        if (waiting || undoHistory.Count == 0) return false;
 
-        BoardSnapshot snapshot = undoSnapshot;
-        ClearBoard();
+        // 取出最近一次移动快照，并锁定输入直到还原动画完成。
+        BoardSnapshot snapshot = undoHistory.Pop();
+        waiting = true;
 
+        HashSet<int> mergedSources = new HashSet<int>();
+        Dictionary<int, int> mergeTargets = new Dictionary<int, int>();
+        foreach (MergeRecord merge in snapshot.merges)
+        {
+            mergedSources.Add(merge.sourceIndex);
+            mergeTargets[merge.sourceIndex] = merge.targetIndex;
+        }
+
+        // 清空单元格占用后，再按快照重新建立方块关联。
+        foreach (TileCell cell in grid.cells)
+        {
+            cell.tile = null;
+        }
+
+        foreach (Tile tile in tiles)
+        {
+            if (tile != null) tile.UnlinkCell();
+        }
+
+        undoTween = DOTween.Sequence();
+        const float undoDuration = 0.2f;
+
+        // 撤销时将本回合新生成的方块缩小并移除。
+        HashSet<int> previousTileIds = new HashSet<int>(snapshot.tileIds);
+        for (int i = 0; i < tiles.Count; i++)
+        {
+            Tile tile = tiles[i];
+            if (tile == null) continue;
+
+            if (!previousTileIds.Contains(tile.Identity))
+            {
+                tile.transform.DOKill();
+                undoTween.Join(tile.transform.DOScale(Vector3.zero, undoDuration)
+                    .OnComplete(() =>
+                    {
+                        tiles.Remove(tile);
+                        Destroy(tile.gameObject);
+                    }));
+            }
+        }
+
+        // 恢复原有方块位置；合并产生的方块从合并目标处动画分离。
         for (int i = 0; i < snapshot.states.Length; i++)
         {
             TileState state = snapshot.states[i];
             if (state == null) continue;
 
-            Tile tile = Instantiate(tilePrefab, grid.transform);
+            if (mergedSources.Contains(i))
+            {
+                int targetIndex = mergeTargets[i];
+                Tile mergeTarget = FindTile(snapshot.tileIds[targetIndex]);
+                Vector3 startPosition = mergeTarget != null
+                    ? mergeTarget.transform.position
+                    : grid.cells[targetIndex].transform.position;
+
+                Tile splitTile = Instantiate(tilePrefab, grid.transform);
+                splitTile.SetState(state);
+                splitTile.SetIdentity(snapshot.tileIds[i]);
+                splitTile.transform.position = startPosition;
+                splitTile.transform.localScale = Vector3.zero;
+                tiles.Add(splitTile);
+                undoTween.Join(splitTile.AnimateToCell(grid.cells[i], undoDuration));
+                undoTween.Join(splitTile.transform.DOScale(Vector3.one, undoDuration));
+                continue;
+            }
+
+            Tile tile = FindTile(snapshot.tileIds[i]);
+            if (tile == null)
+            {
+                tile = Instantiate(tilePrefab, grid.transform);
+                tile.SetIdentity(snapshot.tileIds[i]);
+                tile.transform.position = grid.cells[i].transform.position;
+                tile.transform.localScale = Vector3.zero;
+                tiles.Add(tile);
+            }
+
             tile.SetState(state);
-            tile.LinkCell(grid.cells[i]);
-            tiles.Add(tile);
+            undoTween.Join(tile.AnimateToCell(grid.cells[i], undoDuration));
+            undoTween.Join(tile.transform.DOScale(Vector3.one, undoDuration));
         }
 
         gameManager.RestoreScore(snapshot.score);
+        undoTween.OnComplete(() =>
+        {
+            foreach (Tile tile in tiles)
+            {
+                if (tile != null) tile.locked = false;
+            }
+
+            waiting = false;
+            undoTween = null;
+        });
         return true;
     }
 
+    /// <summary>
+    /// 记录当前每个单元格中的方块状态、身份标识和游戏分数。
+    /// </summary>
+    /// <returns>可用于撤销的当前棋盘快照。</returns>
     private BoardSnapshot CaptureSnapshot()
     {
         BoardSnapshot snapshot = new BoardSnapshot
         {
             states = new TileState[grid.cells.Length],
+            tileIds = new int[grid.cells.Length],
             score = gameManager.Score
         };
 
@@ -275,20 +391,31 @@ public class TileBoard : MonoBehaviour
             if (grid.cells[i].occupied)
             {
                 snapshot.states[i] = grid.cells[i].tile.state;
+                snapshot.tileIds[i] = grid.cells[i].tile.Identity;
             }
         }
 
         return snapshot;
     }
 
-    /// <summary>
-    /// 将A单元格合并到B上
-    /// </summary>
-    /// <param name="a"></param>
-    /// <param name="b"></param>
+    /// <summary>合并动画使用的缩放倍率。</summary>
     private Vector3 scale = new Vector3(1.2f, 1.2f, 1);
-    private void MergeTiles(Tile a, Tile b)
+
+    /// <summary>
+    /// 将源方块合并到目标方块，更新合并状态、动画和分数。
+    /// </summary>
+    /// <param name="a">被合并并移除的源方块。</param>
+    /// <param name="b">保留并升级状态的目标方块。</param>
+    /// <param name="snapshot">用于记录此次合并关系的移动快照。</param>
+    private void MergeTiles(Tile a, Tile b, BoardSnapshot snapshot)
     {
+        // 保存合并前的两个方块位置关系，供撤销时还原分离。
+        snapshot.merges.Add(new MergeRecord
+        {
+            sourceIndex = FindTileIndex(snapshot, a),
+            targetIndex = FindTileIndex(snapshot, b)
+        });
+
         tiles.Remove(a);
         a.Merge(b.cell);
         SoundManager.Instance.playSound(SoundManager.Instance.mergeClip);
@@ -302,7 +429,42 @@ public class TileBoard : MonoBehaviour
         gameManager.IncreaseScore(newState.number);
     }
 
-    // 返回某个state的模板序号
+    /// <summary>
+    /// 查找方块在给定快照中对应的单元格索引。
+    /// </summary>
+    /// <param name="snapshot">要搜索的棋盘快照。</param>
+    /// <param name="tile">要查找的方块。</param>
+    /// <returns>方块所在的单元格索引；未找到时返回 -1。</returns>
+    private int FindTileIndex(BoardSnapshot snapshot, Tile tile)
+    {
+        for (int i = 0; i < snapshot.tileIds.Length; i++)
+        {
+            if (snapshot.tileIds[i] == tile.Identity) return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// 根据身份标识查找当前仍存在于棋盘中的方块。
+    /// </summary>
+    /// <param name="identity">要查找的方块身份标识。</param>
+    /// <returns>匹配的方块；未找到时返回 <see langword="null"/>。</returns>
+    private Tile FindTile(int identity)
+    {
+        foreach (Tile tile in tiles)
+        {
+            if (tile != null && tile.Identity == identity) return tile;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 查找指定方块状态在状态配置数组中的索引。
+    /// </summary>
+    /// <param name="state">要查找的方块状态。</param>
+    /// <returns>状态所在索引；未找到时返回 -1。</returns>
     private int IndexOf(TileState state)
     {
         for (int i = 0; i < tileStates.Length; i++)
@@ -316,10 +478,13 @@ public class TileBoard : MonoBehaviour
         return -1;
     }
 
+    /// <summary>
+    /// 等待移动动画完成，解锁方块，生成新方块并检查游戏结束状态。
+    /// </summary>
+    /// <returns>用于 Unity 协程调度的迭代器。</returns>
     private IEnumerator WaitForChanges()
     {
-        // 两次操作之间 间隔0.1秒，用于做动画表现
-
+        // 暂停输入，避免动画过程中重复处理棋盘。
         waiting = true;
 
         yield return new WaitForSeconds(0.15f);
@@ -331,6 +496,7 @@ public class TileBoard : MonoBehaviour
             tile.locked = false;
         }
 
+        // 每次有效移动后只生成一个新方块。
         foreach (var cell in grid.cells)
         {
             if (cell.empty)
@@ -347,9 +513,9 @@ public class TileBoard : MonoBehaviour
     }
 
     /// <summary>
-    /// 检查游戏是否结束
+    /// 检查棋盘是否已无空位且不存在可合并的相邻方块。
     /// </summary>
-    /// <returns></returns>
+    /// <returns>没有可用移动时返回 <see langword="true"/>。</returns>
     public bool CheckForGameOver()
     {
         foreach (var cell in grid.cells)

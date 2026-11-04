@@ -5,23 +5,40 @@ using UnityEngine.UI;
 using DG.Tweening;
 public class Tile : MonoBehaviour
 {
+    private static int nextIdentity;
+
     public TileState state { get; private set; } // 状态，用于处理数字和背景颜色
     public TileCell cell { get; private set; } // 当前在哪个单元格上
+    public int Identity { get; private set; }
     public bool locked { get; set; } // 是否被锁定 (当逻辑判定改单元格需要发生变化的时候，就会被锁定，防止其他逻辑再用它)
 
     private Image background; // 背景色
     private TextMeshProUGUI text;// 数字
 
+    /// <summary>
+    /// 初始化方块身份标识，并缓存其背景图和数字文本组件。
+    /// </summary>
     private void Awake()
     {
+        Identity = ++nextIdentity;
         background = GetComponent<Image>();
         text = GetComponentInChildren<TextMeshProUGUI>();
     }
 
     /// <summary>
-    /// 设置状态
+    /// 设置方块身份标识，并同步静态计数器以避免后续标识重复。
     /// </summary>
-    /// <param name="state"></param>
+    /// <param name="identity">要分配给方块的身份标识。</param>
+    public void SetIdentity(int identity)
+    {
+        Identity = identity;
+        nextIdentity = Mathf.Max(nextIdentity, identity);
+    }
+
+    /// <summary>
+    /// 更新方块状态及其背景颜色、文字颜色和数字显示。
+    /// </summary>
+    /// <param name="state">要应用的方块状态。</param>
     public void SetState(TileState state)
     {
         this.state = state;
@@ -32,9 +49,9 @@ public class Tile : MonoBehaviour
     }
 
     /// <summary>
-    /// 关联Cell，并设置坐标
+    /// 将方块关联到指定单元格，并立即对齐其位置。
     /// </summary>
-    /// <param name="cell"></param>
+    /// <param name="cell">要关联的单元格。</param>
     public void LinkCell(TileCell cell)
     {
         if (cell == null)
@@ -43,7 +60,7 @@ public class Tile : MonoBehaviour
             return;
         }
 
-        // 先解除已有的绑定
+        // 先解除原单元格的反向引用，避免残留占用状态。
         if (this.cell != null)
         {
             this.cell.tile = null;
@@ -58,9 +75,9 @@ public class Tile : MonoBehaviour
     }
 
     /// <summary>
-    /// 将Tile移动到某个Cell的位置上
+    /// 将方块的逻辑位置更新到指定单元格，并播放移动动画。
     /// </summary>
-    /// <param name="cell"></param>
+    /// <param name="cell">方块移动到的单元格。</param>
     public void MoveTo(TileCell cell)
     {
         if (this.cell != null)
@@ -77,9 +94,37 @@ public class Tile : MonoBehaviour
     }
 
     /// <summary>
-    /// 将Tile合并到某个Cell的位置上
+    /// 将方块关联到目标单元格，并以 DOTween 动画移动到该位置。
     /// </summary>
-    /// <param name="cell"></param>
+    /// <param name="cell">动画结束时方块所在的单元格。</param>
+    /// <param name="duration">动画时长，单位为秒。</param>
+    /// <returns>控制方块移动的 DOTween 动画。</returns>
+    public Tween AnimateToCell(TileCell cell, float duration)
+    {
+        // 先更新逻辑占用关系，再播放视觉移动动画。
+        this.cell = cell;
+        cell.tile = this;
+        transform.DOKill();
+        return transform.DOMove(cell.transform.position, duration).SetEase(Ease.OutQuad);
+    }
+
+    /// <summary>
+    /// 解除方块与当前单元格之间的双向关联。
+    /// </summary>
+    public void UnlinkCell()
+    {
+        if (cell != null && cell.tile == this)
+        {
+            cell.tile = null;
+        }
+
+        cell = null;
+    }
+
+    /// <summary>
+    /// 解除方块的当前关联，并播放合并到目标单元格的动画。
+    /// </summary>
+    /// <param name="cell">执行合并的目标单元格。</param>
     public void Merge(TileCell cell)
     {
         if (this.cell != null)
@@ -123,12 +168,13 @@ public class Tile : MonoBehaviour
     //}
 
     /// <summary>
-    /// 移动动画
+    /// 播放方块移动动画，并在合并移动结束后销毁当前方块。
     /// </summary>
-    /// <param name="merging">是否合并</param>
-    /// <param name="to">目标位置</param>
+    /// <param name="merging"><see langword="true"/> 表示移动完成后销毁方块。</param>
+    /// <param name="to">动画结束时的世界坐标。</param>
     private void MoveAnimate(bool merging, Vector3 to)
     {
+        // 动画结束时再次对齐目标位置，避免浮点误差。
         transform.DOMove(to, 0.15f).OnComplete(() =>
         {
             transform.position = to;

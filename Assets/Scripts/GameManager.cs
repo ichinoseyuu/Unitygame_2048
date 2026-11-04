@@ -9,27 +9,36 @@ public class GameManager : MonoBehaviour
     public UIManager uiManager; //UI管理类
     private int score; //当前分数
 
+    /// <summary>
+    /// 初始化游戏管理器，并为 Android 设置目标帧率。
+    /// </summary>
     private void Awake()
     {
         if (Application.platform == RuntimePlatform.Android) Application.targetFrameRate = 90;//帧率
     }
 
+    /// <summary>
+    /// 获取当前游戏分数。
+    /// </summary>
     public int Score => score;
 
+    /// <summary>
+    /// 检测键盘快捷键，并在按下 Ctrl+Z 时撤销一步。
+    /// </summary>
     private void Update()
     {
-        if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) &&
-            Input.GetKeyDown(KeyCode.Z))
+        if (Input.GetKey(KeyCode.Backspace))
         {
             UndoLastMove();
         }
     }
 
     /// <summary>
-    /// 新游戏
+    /// 重置分数和棋盘，并创建新游戏的初始方块。
     /// </summary>
     public void NewGame()
     {
+        // 清理旧棋盘并更新界面，再生成两个初始方块。
         SetScore(0);// 还原分数
         uiManager.hiscoreText.text = LoadHiscore().ToString();// 加载最高分数
         board.ClearBoard();//清除面板
@@ -39,7 +48,7 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 游戏结束，显示面板
+    /// 停止棋盘操作，保存数据并显示游戏结束界面。
     /// </summary>
     public void GameOver()
     {
@@ -49,6 +58,9 @@ public class GameManager : MonoBehaviour
         SoundManager.Instance.playSound(SoundManager.Instance.faildClip);
     }
 
+    /// <summary>
+    /// 撤销棋盘上最近一次有效移动，并关闭游戏结束窗口（若已打开）。
+    /// </summary>
     public void UndoLastMove()
     {
         if (!board.Undo()) return;
@@ -61,18 +73,18 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 增加分数
+    /// 将指定分数加到当前分数上。
     /// </summary>
-    /// <param name="points"></param>
+    /// <param name="points">要增加的分数。</param>
     public void IncreaseScore(int points)
     {
         SetScore(score + points);
     }
 
     /// <summary>
-    /// 设置分数
+    /// 更新当前分数、界面显示及最高分记录。
     /// </summary>
-    /// <param name="score"></param>
+    /// <param name="score">要设置的分数。</param>
     private void SetScore(int score)
     {
         this.score = score;
@@ -82,13 +94,17 @@ public class GameManager : MonoBehaviour
         SaveHiscore();
     }
 
+    /// <summary>
+    /// 将当前分数恢复为指定值。
+    /// </summary>
+    /// <param name="value">要恢复的分数。</param>
     public void RestoreScore(int value)
     {
         SetScore(value);
     }
 
     /// <summary>
-    /// 如果已经超过历史分数，那么就将当前分数设置为最高分数
+    /// 当当前分数超过历史最高分时，更新保存的最高分。
     /// </summary>
     private void SaveHiscore()
     {
@@ -101,9 +117,9 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 加载最高分数
+    /// 加载已保存的历史最高分。
     /// </summary>
-    /// <returns></returns>
+    /// <returns>已保存的最高分；若没有记录则返回 0。</returns>
     private int LoadHiscore()
     {
         return PlayerPrefs.GetInt("hiscore", 0);

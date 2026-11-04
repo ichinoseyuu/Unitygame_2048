@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 public class MyButtons : MonoBehaviour
 {
+    /// <summary>获取当前场景中的按钮控制器单例。</summary>
     public static MyButtons Instance { get; private set; }
 
     public Button[] buttons;
@@ -13,6 +14,9 @@ public class MyButtons : MonoBehaviour
     public AudioClip hoverSound; // 悬停音效
     public AudioClip pressSound; // 点击音效
 
+    /// <summary>
+    /// 初始化按钮控制器单例，并销毁重复实例。
+    /// </summary>
     private void Awake()
     {
         // 确保只有一个实例存在
@@ -27,8 +31,12 @@ public class MyButtons : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 为已配置的按钮添加并初始化按钮动画组件。
+    /// </summary>
     private void Start()
     {
+        // 复用已存在的动画组件，避免为同一按钮重复添加组件。
         foreach (Button button in buttons)
         {
             if (button != null)
@@ -52,7 +60,7 @@ public class MyButtons : MonoBehaviour
     }
 
     /// <summary>
-    /// 开始游戏
+    /// 开始新游戏并关闭开始界面。
     /// </summary>
     public void StartGame()
     {
@@ -60,7 +68,7 @@ public class MyButtons : MonoBehaviour
         uiManager.WindowSlideOut(uiManager.startWindow, uiManager.GetLeftWindowPos(), false);
     }
     /// <summary>
-    /// 返回主菜单
+    /// 关闭设置界面并显示主菜单。
     /// </summary>
     public void OpenMainMenu()
     {
@@ -68,7 +76,7 @@ public class MyButtons : MonoBehaviour
         uiManager.WindowSlideIn(uiManager.startWindow, Vector2.zero);
     }
     /// <summary>
-    /// 打开帮助窗口
+    /// 显示帮助窗口并暂停棋盘操作。
     /// </summary>
     public void OpenHelpWindow()
     {
@@ -77,7 +85,7 @@ public class MyButtons : MonoBehaviour
     }
 
     /// <summary>
-    /// 打开设置窗口
+    /// 显示设置窗口并暂停棋盘操作。
     /// </summary>
     public void OpenSettingsWindow()
     {
@@ -85,7 +93,7 @@ public class MyButtons : MonoBehaviour
         SetBoardState(false);
     }
     /// <summary>
-    /// 关闭帮助窗口
+    /// 关闭帮助窗口；若设置窗口仍打开则保持棋盘暂停。
     /// </summary>
     public void HelpBack()
     {
@@ -94,7 +102,7 @@ public class MyButtons : MonoBehaviour
         SetBoardState(true);
     }
     /// <summary>
-    /// 关闭设置
+    /// 关闭设置窗口；若帮助窗口仍打开则保持棋盘暂停。
     /// </summary>
     public void SettingsBack()
     {
@@ -103,7 +111,7 @@ public class MyButtons : MonoBehaviour
         SetBoardState(true);
     }
     /// <summary>
-    /// 新游戏
+    /// 开始新游戏，并在需要时关闭游戏结束窗口。
     /// </summary>
     public void NewGame()
     {
@@ -111,7 +119,7 @@ public class MyButtons : MonoBehaviour
         if (uiManager.overWindow.IsActive()) uiManager.WindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(), false);
     }
     /// <summary>
-    /// 再试一次
+    /// 重新开始游戏并关闭游戏结束窗口。
     /// </summary>
     public void TryAgain()
     {
@@ -119,12 +127,15 @@ public class MyButtons : MonoBehaviour
         uiManager.WindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(), false);
     }
 
+    /// <summary>
+    /// 请求游戏管理器撤销最近一次移动。
+    /// </summary>
     public void UndoLastMove()
     {
         gameManager.UndoLastMove();
     }
     /// <summary>
-    /// 保存音乐音量
+    /// 保存并应用背景音乐音量滑块的当前值。
     /// </summary>
     public void SaveBGMVolume()
     {
@@ -133,7 +144,7 @@ public class MyButtons : MonoBehaviour
     }
 
     /// <summary>
-    /// 保存音效音量
+    /// 保存并应用音效音量滑块的当前值。
     /// </summary>
     public void SaveEffctVolume()
     {
@@ -142,7 +153,7 @@ public class MyButtons : MonoBehaviour
     }
 
     /// <summary>
-    /// 退出游戏
+    /// 在编辑器中停止运行，或在构建版本中退出应用程序。
     /// </summary>
     public void ExitGame()
     {
@@ -153,8 +164,13 @@ public class MyButtons : MonoBehaviour
 #endif
 
     }
+    /// <summary>
+    /// 设置棋盘是否可以响应移动操作。
+    /// </summary>
+    /// <param name="state"><see langword="true"/> 启用棋盘；<see langword="false"/> 禁用棋盘。</param>
     private void SetBoardState(bool state)
     {
+        // 状态未变化时无需重复赋值。
         if (gameManager.board.enabled == state) return;
         gameManager.board.enabled = state;
     }

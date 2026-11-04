@@ -14,7 +14,10 @@ public class ButtonAnimator : MonoBehaviour
     private AudioSource audioSource; //AudioSource 组件
     private Vector3 originalScale;
 
-    void Start()
+    /// <summary>
+    /// 初始化按钮音效、缩放基准，并注册鼠标和点击事件。
+    /// </summary>
+    private void Start()
     {
         //if (audioSource == null)
         //{
@@ -44,11 +47,19 @@ public class ButtonAnimator : MonoBehaviour
         button.onClick.AddListener(OnClick);
     }
 
+    /// <summary>
+    /// 将按钮动画缩放到指定倍率，并在动画结束时执行回调。
+    /// </summary>
+    /// <param name="scale">相对于按钮初始尺寸的缩放倍率。</param>
+    /// <param name="onComplete">动画结束后执行的回调；可为空。</param>
     private void AnimateScale(float scale, TweenCallback onComplete = null)
     {
         button.transform.DOScale(originalScale * scale, duration).SetEase(Ease.OutBack).OnComplete(onComplete);
     }
 
+    /// <summary>
+    /// 响应按钮点击，播放按下音效，并在 Android 上播放按压动画。
+    /// </summary>
     private void OnClick()
     {
         PlaySound(MyButtons.Instance.pressSound);
@@ -61,6 +72,9 @@ public class ButtonAnimator : MonoBehaviour
         }  
     }
 
+    /// <summary>
+    /// 响应鼠标进入按钮区域，播放悬停动画和音效。
+    /// </summary>
     private void OnPointerEnter()
     {
         if (Application.platform == RuntimePlatform.Android) return;
@@ -68,11 +82,18 @@ public class ButtonAnimator : MonoBehaviour
         PlaySound(MyButtons.Instance.hoverSound);
     }
 
+    /// <summary>
+    /// 响应鼠标离开按钮区域，并将按钮缩放恢复到初始尺寸。
+    /// </summary>
     private void OnPointerExit()
     {
         AnimateScale(1f);
     }
 
+    /// <summary>
+    /// 使用按钮音效源播放指定音效。
+    /// </summary>
+    /// <param name="clip">要播放的音频片段；为空时不播放。</param>
     private void PlaySound(AudioClip clip)
     {
         if (clip != null)
