@@ -3,6 +3,8 @@ Library/
 logs/
 obj/
 Temp/
+ProjectSettings/
+Packages/
 UserSettings/
 *.vsconfig
 *.csproj
