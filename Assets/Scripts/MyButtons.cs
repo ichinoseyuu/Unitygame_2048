@@ -57,21 +57,31 @@ public class MyButtons : MonoBehaviour
     public void StartGame()
     {
         gameManager.NewGame();
-        uiManager.MindowSlideOut(uiManager.startWindow, uiManager.GetLeftWindowPos(), false);
+        uiManager.WindowSlideOut(uiManager.startWindow, uiManager.GetLeftWindowPos(), false);
+    }
+    /// <summary>
+    /// 返回主菜单
+    /// </summary>
+    public void OpenMainMenu()
+    {
+        SettingsBack();
+        uiManager.WindowSlideIn(uiManager.startWindow, Vector2.zero);
     }
     /// <summary>
     /// 打开帮助窗口
     /// </summary>
     public void OpenHelpWindow()
     {
-        uiManager.MindowSlideIn(uiManager.helpWindow, Vector2.zero);
+        uiManager.WindowSlideIn(uiManager.helpWindow, Vector2.zero);
+        SetBoardState(false);
     }
+
     /// <summary>
     /// 打开设置窗口
     /// </summary>
     public void OpenSettingsWindow()
     {
-        uiManager.MindowSlideIn(uiManager.settingsWindow, Vector2.zero);
+        uiManager.WindowSlideIn(uiManager.settingsWindow, Vector2.zero);
         SetBoardState(false);
     }
     /// <summary>
@@ -79,8 +89,8 @@ public class MyButtons : MonoBehaviour
     /// </summary>
     public void HelpBack()
     {
-        uiManager.MindowSlideOut(uiManager.helpWindow, uiManager.GetRightWindowPos(), false);
-        if(uiManager.settingsWindow.IsActive()) return;
+        uiManager.WindowSlideOut(uiManager.helpWindow, uiManager.GetRightWindowPos(), false);
+        if (uiManager.settingsWindow.IsActive()) return;
         SetBoardState(true);
     }
     /// <summary>
@@ -88,7 +98,7 @@ public class MyButtons : MonoBehaviour
     /// </summary>
     public void SettingsBack()
     {
-        uiManager.MindowSlideOut(uiManager.settingsWindow, uiManager.GetRightWindowPos(), false);
+        uiManager.WindowSlideOut(uiManager.settingsWindow, uiManager.GetRightWindowPos(), false);
         if (uiManager.helpWindow.IsActive()) return;
         SetBoardState(true);
     }
@@ -98,7 +108,7 @@ public class MyButtons : MonoBehaviour
     public void NewGame()
     {
         gameManager.NewGame();
-        if(uiManager.overWindow.IsActive()) uiManager.MindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(),false);
+        if (uiManager.overWindow.IsActive()) uiManager.WindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(), false);
     }
     /// <summary>
     /// 再试一次
@@ -106,7 +116,12 @@ public class MyButtons : MonoBehaviour
     public void TryAgain()
     {
         gameManager.NewGame();
-        uiManager.MindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(), false);
+        uiManager.WindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(), false);
+    }
+
+    public void UndoLastMove()
+    {
+        gameManager.UndoLastMove();
     }
     /// <summary>
     /// 保存音乐音量

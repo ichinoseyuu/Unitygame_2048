@@ -14,6 +14,16 @@ public class GameManager : MonoBehaviour
         if (Application.platform == RuntimePlatform.Android) Application.targetFrameRate = 90;//帧率
     }
 
+    public int Score => score;
+
+    private void Update()
+    {
+        if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) &&
+            Input.GetKeyDown(KeyCode.Z))
+        {
+            UndoLastMove();
+        }
+    }
 
     /// <summary>
     /// 新游戏
@@ -27,7 +37,7 @@ public class GameManager : MonoBehaviour
         board.CreateTile();
         board.enabled = true;//允许面板中的方块移动，代表游戏开始
     }
-    
+
     /// <summary>
     /// 游戏结束，显示面板
     /// </summary>
@@ -35,8 +45,19 @@ public class GameManager : MonoBehaviour
     {
         board.enabled = false;//关闭方块移动
         PlayerPrefs.Save();
-        uiManager.MindowSlideIn(uiManager.overWindow, Vector2.zero);
+        uiManager.WindowSlideIn(uiManager.overWindow, Vector2.zero);
         SoundManager.Instance.playSound(SoundManager.Instance.faildClip);
+    }
+
+    public void UndoLastMove()
+    {
+        if (!board.Undo()) return;
+
+        board.enabled = true;
+        if (uiManager.overWindow.IsActive())
+        {
+            uiManager.WindowSlideOut(uiManager.overWindow, uiManager.GetUpwardWindowPos(), false);
+        }
     }
 
     /// <summary>
@@ -47,11 +68,11 @@ public class GameManager : MonoBehaviour
     {
         SetScore(score + points);
     }
-    
-      /// <summary>
-     /// 设置分数
-     /// </summary>
-     /// <param name="score"></param>
+
+    /// <summary>
+    /// 设置分数
+    /// </summary>
+    /// <param name="score"></param>
     private void SetScore(int score)
     {
         this.score = score;
@@ -61,6 +82,11 @@ public class GameManager : MonoBehaviour
         SaveHiscore();
     }
 
+    public void RestoreScore(int value)
+    {
+        SetScore(value);
+    }
+
     /// <summary>
     /// 如果已经超过历史分数，那么就将当前分数设置为最高分数
     /// </summary>
@@ -68,11 +94,12 @@ public class GameManager : MonoBehaviour
     {
         int hiscore = LoadHiscore();
 
-        if (score > hiscore) {
+        if (score > hiscore)
+        {
             PlayerPrefs.SetInt("hiscore", score);
         }
     }
-    
+
     /// <summary>
     /// 加载最高分数
     /// </summary>
@@ -82,5 +109,5 @@ public class GameManager : MonoBehaviour
         return PlayerPrefs.GetInt("hiscore", 0);
     }
 
-    
+
 }

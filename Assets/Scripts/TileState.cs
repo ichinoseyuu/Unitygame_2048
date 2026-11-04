@@ -7,4 +7,3 @@ public class TileState : ScriptableObject
     public Color textColor; // 文字颜色
     public int number; // 数字
 }
- 

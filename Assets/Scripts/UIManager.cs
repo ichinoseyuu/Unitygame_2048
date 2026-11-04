@@ -22,20 +22,20 @@ public class UIManager : MonoBehaviour
     private Vector2 leftWindowPos = new Vector2(-1200f, 0);
     private bool isHelpWindowOn;
 
-    public Vector2 GetUpwardWindowPos() {return upwardWindowPos;}
-    public Vector2 GetDownWindowPos() {return downWindowPos;}
-    public Vector2 GetRightWindowPos() {return rightWindowPos;}
-    public Vector2 GetLeftWindowPos() {return leftWindowPos;}
-    
+    public Vector2 GetUpwardWindowPos() { return upwardWindowPos; }
+    public Vector2 GetDownWindowPos() { return downWindowPos; }
+    public Vector2 GetRightWindowPos() { return rightWindowPos; }
+    public Vector2 GetLeftWindowPos() { return leftWindowPos; }
+
 
     /// <summary>
-        /// 窗口动画关闭
-        /// </summary>
-        /// <param name="window">目标窗口</param>
-        /// <param name="target">目标位置</param>
-        /// <param name="state">结束状态</param>
-        /// <param name="duration">动画时间</param>
-    public void MindowSlideOut(Image window, Vector2 target, bool state = true, float duration = 0.5f)
+    /// 窗口动画关闭
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <param name="target">目标位置</param>
+    /// <param name="state">结束状态</param>
+    /// <param name="duration">动画时间</param>
+    public void WindowSlideOut(Image window, Vector2 target, bool state = true, float duration = 0.5f)
     {
         RectTransform imageRectTransform = window.rectTransform;
         imageRectTransform.DOAnchorPos(target, duration).SetEase(Ease.InOutQuad).OnComplete(() =>
@@ -51,7 +51,7 @@ public class UIManager : MonoBehaviour
     /// <param name="window">目标窗口</param>
     /// <param name="target">目标位置</param>
     /// <param name="duration">动画时间</param>
-    public void MindowSlideIn(Image window, Vector2 target, float duration = 0.5f)
+    public void WindowSlideIn(Image window, Vector2 target, float duration = 0.5f)
     {
         window.gameObject.SetActive(true);
         RectTransform imageRectTransform = window.rectTransform;

@@ -4,4 +4,11 @@ logs/
 obj/
 Temp/
 UserSettings/
-.vsconfig
+*.vsconfig
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+

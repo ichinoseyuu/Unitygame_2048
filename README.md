@@ -7,3 +7,5 @@ A manager for portable software
 
 ## Features
 - No ADs
+- Undo the previous successful move with `Ctrl+Z` on desktop. For touch controls, connect `MyButtons.UndoLastMove` to a UI button.
+- Detect game over by checking board occupancy and all possible neighboring merges.
